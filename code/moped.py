@@ -77,18 +77,21 @@ class MOPED(object):
         
         self.eig_vec = np.zeros_like(self.dmdtheta)
 
-        self.eig_vec[0] = self.eig_unnorm[0]
+        self.eig_vec[0] = self.eig_unnorm[0]/np.sqrt(np.sum(self.dmdtheta[0]*self.eig_unnorm[0]))
         for m in range(1,self.M):
             sum_vector = np.zeros_like(self.data)
             sum_scalar = 0.0
-            for q in range(m-1):
-                dmu_dot_b = np.sum(self.eig_unnorm[m]*self.eig_vec[q])
+            for q in range(m):
+                dmu_dot_b = np.sum(self.dmdtheta[m]*self.eig_vec[q])
                 sum_vector += dmu_dot_b*self.eig_vec[q]
                 sum_scalar += dmu_dot_b**2
             numerator = self.eig_unnorm[m] - sum_vector
-            denominator = np.sum(self.dmdtheta[m]*self.eig_unnorm[m]) - sum_scalar
-            self.eig_vec[m] = numerator / (denominator + 1e-15)
+            denominator = np.sum(self.dmdtheta[m]*self.eig_unnorm[m]) - sum_scalar + 1e-15
+            self.eig_vec[m] = numerator / np.sqrt(denominator)
 
         self.data_comp = np.sum(self.eig_vec*self.data,axis=1)
+        # print('these should be positive:')
+        # for m in range(self.M):
+        #     print(np.sum(self.dmdtheta[m]*self.eig_unnorm[m]))
             
         return
