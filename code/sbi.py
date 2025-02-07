@@ -13,12 +13,16 @@ from mlalgos import Sequential
 import gc
 
 class NeuralRatioEstimator(MLUtilities):
-    """ Base class to construct neural ratio estimator using provided training sample. """ 
+    """ Base class to construct neural ratio estimator using provided training sample. """
+    #############################
     def __init__(self,params={}):
         """ Neural ratio estimation using Sequential NN.
             params should be dictionary with a subset of following keys:
             -- params['data_dim']: int, input data dimension
             -- params['param_dim']: int, input model parameter dimension
+            -- params['use_external']: boolean, whether or not to use externally defined training sample (default False).
+                                       If False, then methods simulator() and prior() must be defined by user.
+                                       If True, then these methods not used but training set should have correct format.
             -- params['Lh']: int, L >= 1, number of hidden layers
             -- params['n_hidden_layer']: list of Lh int, number of units in each hidden layer.
             -- params['hidden_atypes']: list of Lh str, activation type in each hidden layer 
@@ -44,6 +48,7 @@ class NeuralRatioEstimator(MLUtilities):
         """
         self.nparam = params.get('param_dim',None)
         self.ndata = params.get('data_dim',None)
+        self.use_external = params.get('use_external',False)
         self.seed = params.get('seed',None)
         self.Lh = int(params.get('Lh',1))
         self.n_hidden_layer = params.get('n_hidden_layer',[1]) 
@@ -74,6 +79,10 @@ class NeuralRatioEstimator(MLUtilities):
         
         self.rng = np.random.RandomState(seed=self.seed)
 
+        return
+    #############################
+
+    #############################
     def check_init(self):
         if self.nparam is None:
             raise Exception("Need to specify param_dim in NeuralRatioEstimator.")
@@ -84,19 +93,24 @@ class NeuralRatioEstimator(MLUtilities):
         Path(self.file_stem+'/net').mkdir(parents=True, exist_ok=True)
         
         return
+    #############################
     
-    # force this method to be defined explicitly 
+    #############################
+    # force these methods to be defined explicitly, unless external training set to be used
     def simulator(self,theta):
-        prnt_strng = "Need to define NeuralRatioEstimator.simulator with input theta (self.nparam,nsamp)"
-        prnt_strng += " and output X_sim (self.ndata,nsamp)"
-        raise NotImplementedError()
+        if not self.use_external:
+            prnt_strng = "Need to define NeuralRatioEstimator.simulator with input theta (self.nparam,nsamp)"
+            prnt_strng += " and output X_sim (self.ndata,nsamp)"
+            raise NotImplementedError()
 
-    # force this method to be defined explicitly 
     def prior(self,nsamp):
-        prnt_strng = "Need to define NeuralRatioEstimator.prior with input nsamp"
-        prnt_strng += " and output theta (self.nparam,nsamp)"
-        raise NotImplementedError()
+        if not self.use_external:
+            prnt_strng = "Need to define NeuralRatioEstimator.prior with input nsamp"
+            prnt_strng += " and output theta (self.nparam,nsamp)"
+            raise NotImplementedError()
+    #############################
 
+    #############################
     def gen_train(self,theta):
         """ Generate complete training sample using provided theta samples drawn from prior p(theta).
             -- theta: parameter sample of shape (self.nparam,nsamp)
@@ -133,15 +147,50 @@ class NeuralRatioEstimator(MLUtilities):
         Y[0,:nsamp] = 1.0
         
         return Xtheta,Y
+    #############################
 
 
+    #############################
+    def check_sample(self,Xtheta,Y,nsamp):
+        """ Simle utility to check user-defined training sample. """
+        if Xtheta is None:
+            prnt_str = "Since use_external = True, need Xtheta defined with shape = ({0:d},{1:d})".format(self.ndata+self.nparam,2*nsamp)
+            raise Exception(prnt_str)
+        if Xtheta.shape != (self.ndata+self.nparam,2*nsamp):
+            prnt_str = "Need Xtheta.shape = ({0:d},{1:d}), got (".format(self.ndata+self.nparam,2*nsamp)
+            prnt_str += ','.join([str(s) for s in Xtheta.shape])+")"
+            raise Exception(prnt_str)
+        if Y is None:
+            prnt_str = "Since use_external = True, need Y defined with shape = (1,{0:d})".format(2*nsamp)
+            raise Exception(prnt_str)
+        if Y.shape != (self.ndata+self.nparam,2*nsamp):
+            prnt_str = "Need Y.shape = ({0:d},{1:d}), got (".format(self.ndata+self.nparam,2*nsamp)
+            prnt_str += ','.join([str(s) for s in Y.shape])+")"
+            raise Exception(prnt_str)
+        
+        return
+    #############################
+
+    #############################
     def train(self,nsamp,params={}):
         """ NRE training.
             -- nsamp: int, number of samples to simulate.
-            -- params: dictionary compatible with input to Sequential.train(). """
-        
-        theta = self.prior(nsamp)
-        Xtheta,Y = self.gen_train(theta)
+            -- params: dictionary compatible with input to Sequential.train(). 
+                       If self.use_external = True, then params should contain keys 'Xtheta' and 'Y' with values
+                       being arrays of shape (self.ndata+self.nparam,2*nsamp) and (1,2*nsamp), respectively.
+        """
+        # setup sample
+        if self.use_external:
+            Xtheta = params.get('Xtheta',None)
+            Y = params.get('Y',None)
+            self.check_sample(Xtheta,Y,nsamp)
+        else:
+            theta = self.prior(nsamp)
+            Xtheta,Y = self.gen_train(theta)
+
+        # train network
         self.net.train(Xtheta,Y)
         
         return 
+    #############################
+
