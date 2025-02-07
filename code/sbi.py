@@ -4,6 +4,8 @@ import sys
 from paths import ML_Path
 sys.path.append(ML_Path)
 
+from pathlib import Path
+
 from mllib import MLUtilities
 from mlalgos import Sequential
 # import copy,pickle
@@ -13,14 +15,63 @@ import gc
 class NeuralRatioEstimator(MLUtilities):
     """ Base class to construct neural ratio estimator using provided training sample. """ 
     def __init__(self,params={}):
+        """ Neural ratio estimation using Sequential NN.
+            params should be dictionary with a subset of following keys:
+            -- params['data_dim']: int, input data dimension
+            -- params['param_dim']: int, input model parameter dimension
+            -- params['Lh']: int, L >= 1, number of hidden layers
+            -- params['n_hidden_layer']: list of Lh int, number of units in each hidden layer.
+            -- params['hidden_atypes']: list of Lh str, activation type in each hidden layer 
+                                        chosen from ['sigm','tanh','relu','lrelu','sm','lin'] or 'custom...'.
+                                        If 'custom...', then also define dictionary params['custom_atypes']
+            -- params['custom_atypes']: dictionary with keys matching 'custom...' entry in params['hidden_atypes']
+                                        with items being activation module instances.
+            -- params['standardize']: boolean, whether or not to standardize training data in Sequential.train() (default True)
+            -- params['adam']: boolean, whether or not to use adam in GD update (default True)
+            -- params['lrelu_slope']: float in (-1,1), slope of leaky ReLU if used (default 1e-2).
+            -- params['wt_decay']: float, weight decay coefficient (should be non-negative; default 0.0)
+            -- params['decay_norm']: int, norm of weight decay coefficient, either 2 or 1 (default 2)
+            -- params['reg_fun']: str, type of regularization.
+                                  Accepted values ['bn','drop','none'] for batch-normalization, dropout or no reg, respectively.
+                                  If 'drop', then value of 'p_drop' must be specified. Default 'none'.
+            -- params['p_drop']: float between 0 and 1, drop probability.
+                                 Only used if 'reg_fun' = 'drop'.
+                                 Default value 0.5, but not clear if this is a good choice.
+            -- params['seed']: int, random number seed.
+            -- params['file_stem']: str, common stem for generating filenames for saving (should include full path).
+            -- params['verbose']: boolean, whether of not to print output (default True).
+            -- params['logfile']: None or str, file into which to print output (default None, print to stdout)
+        """
         self.nparam = params.get('param_dim',None)
         self.ndata = params.get('data_dim',None)
         self.seed = params.get('seed',None)
+        self.Lh = int(params.get('Lh',1))
+        self.n_hidden_layer = params.get('n_hidden_layer',[1]) 
+        self.hidden_atypes = params.get('hidden_atypes',['relu'])
+        custom_atypes = params.get('custom_atypes',None) 
+        standardize = params.get('standardize',True)
+        adam = params.get('adam',True)
+        lrelu_slope = params.get('lrelu_slope',1e-2)
+        reg_fun = params.get('reg_fun','none')
+        p_drop = params.get('p_drop',0.5)
+        wt_decay = params.get('wt_decay',0.0)
+        decay_norm = int(params.get('decay_norm',2))
+        self.seed = params.get('seed',None)
+        self.file_stem = params.get('file_stem','net')
+        self.verbose = params.get('verbose',True)
+        self.logfile = params.get('logfile',None)
 
         self.check_init()
 
-        self.params_seq = {} # feed to Sequential
-
+        # feed to Sequential
+        self.params_seq = {'data_dim':self.ndata+self.nparam,'Lh':self.Lh,
+                           'n_layer':self.n_hidden_layer+[1],'atypes':self.hidden_atypes+['sigm'],'custom_atypes':custom_atypes,
+                           'loss_type':'nll','neg_labels':False,
+                           'standardize':standardize,'adam':adam,'lrelu_slope':lrelu_slope,'reg_fun':reg_fun,'p_drop':p_drop,
+                           'wt_decay':wt_decay,'decay_norm':decay_norm,'seed':self.seed,'file_stem':self.file_stem+'/net',
+                           'verbose':self.verbose,'logfile':self.logfile} 
+        self.net = Sequential(params=self.params_seq)
+        
         self.rng = np.random.RandomState(seed=self.seed)
 
     def check_init(self):
@@ -29,6 +80,8 @@ class NeuralRatioEstimator(MLUtilities):
         
         if self.ndata is None:
             raise Exception("Need to specify data_dim in NeuralRatioEstimator.")
+
+        Path(self.file_stem+'/net').mkdir(parents=True, exist_ok=True)
         
         return
     
@@ -82,5 +135,13 @@ class NeuralRatioEstimator(MLUtilities):
         return Xtheta,Y
 
 
-    def train(self,params={}):
+    def train(self,nsamp,params={}):
+        """ NRE training.
+            -- nsamp: int, number of samples to simulate.
+            -- params: dictionary compatible with input to Sequential.train(). """
+        
+        theta = self.prior(nsamp)
+        Xtheta,Y = self.gen_train(theta)
+        self.net.train(Xtheta,Y)
+        
         return 
