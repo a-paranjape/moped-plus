@@ -44,6 +44,7 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             -- params['verbose']: boolean, whether of not to print output (default True).
             -- params['logfile']: None or str, file into which to print output (default None, print to stdout)
         """
+        self.params = params
         self.nparam = params.get('param_dim',None)
         self.ndata = params.get('data_dim',None)
         self.use_external = params.get('use_external',False)
@@ -59,7 +60,7 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         wt_decay = params.get('wt_decay',0.0)
         decay_norm = int(params.get('decay_norm',2))
         self.standardize = params.get('standardize',True)
-        self.params = {'standardize':self.standardize} # for consistency with self.save and self.load
+        self.params['standardize'] = self.standardize # for consistency with self.save and self.load
         self.seed = params.get('seed',None)
         self.file_stem = params.get('file_stem','net')
         self.verbose = params.get('verbose',True)
@@ -255,6 +256,7 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         with open(self.file_stem + '/params.pkl', 'rb') as f:
             self.params = pickle.load(f)
             
+        self.nparam = self.params['param_dim']
         self.standardize = self.params['standardize']
         if self.standardize:
             self.X_std = self.params['X_std']
@@ -263,6 +265,21 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             self.theta_mean = self.params['theta_mean']
         
         return
+    #############################
+
+    #############################
+    def save_train(self,params_train):
+        """ Save training params to file. """
+        with open(self.file_stem + '/train.pkl', 'wb') as f:
+            pickle.dump(params_train,f)
+    #############################
+
+    #############################
+    def load_train(self):
+        """ Load training params from file. """
+        with open(self.file_stem + '/train.pkl', 'rb') as f:
+            params_train = pickle.load(f)
+        return params_train
     #############################
     
 #################################
