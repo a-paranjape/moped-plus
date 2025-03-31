@@ -1,0 +1,97 @@
+theory:
+  likelihoods.NRETheory:
+    nre: true
+    data:
+    - - 2.0658799115876096
+    - - 1.94385087054859
+    - - 1.5346115379708942
+    - - 1.1707961226822026
+    - - 1.07973435658756
+    - - 1.1263917555926861
+    - - 0.5622359649487441
+    - - 0.559034769770125
+    - - 0.07947224022163718
+    - - 0.1499211651550969
+    - - -0.5673488782363572
+    - - 0.21834674762523032
+    - - -0.5810699266040014
+    - - -0.6584849203084799
+    - - -0.3272903336032901
+    keys:
+    - a0
+    - a1
+    speed: -1
+    stop_at_error: false
+    version: null
+    python_path: ../code/likes/
+    input_params:
+    - a0
+    - a1
+    output_params: []
+likelihood:
+  likelihoods.NRELike:
+    type: []
+    speed: -1
+    stop_at_error: false
+    version: null
+    python_path: ../code/likes/
+    input_params: []
+    output_params: []
+params:
+  a0:
+    ref:
+      min: 0.999
+      max: 1.001
+    prior:
+      dist: norm
+      loc: 1.0
+      scale: 5.0
+    proposal: 0.01
+    latex: a_{0}
+  a1:
+    ref:
+      min: 0.999
+      max: 1.001
+    prior:
+      dist: norm
+      loc: -1.0
+      scale: 5.0
+    proposal: 0.01
+    latex: a_{1}
+sampler:
+  mcmc:
+    burn_in: 0
+    max_tries: 1000
+    covmat: null
+    covmat_params: null
+    proposal_scale: 2.4
+    output_every: 60s
+    learn_every: 40d
+    temperature: 1
+    learn_proposal: true
+    learn_proposal_Rminus1_max: 2.0
+    learn_proposal_Rminus1_max_early: 30.0
+    learn_proposal_Rminus1_min: 0.0
+    max_samples: 1000000
+    Rminus1_stop: 0.005
+    Rminus1_cl_stop: 0.025
+    Rminus1_cl_level: 0.95
+    Rminus1_single_split: 4
+    measure_speeds: true
+    oversample_power: 0.4
+    oversample_thin: true
+    drag: false
+    blocking:
+    - - 1
+      - - a0
+        - a1
+    callback_function: null
+    callback_every: null
+    seed: null
+    check_every: null
+    oversample: null
+    drag_limits: null
+    fallback_covmat_scale: 4
+    version: 3.5.1
+output: nre9
+version: 3.5.1
