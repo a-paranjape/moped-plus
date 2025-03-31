@@ -1,6 +1,10 @@
 import numpy as np
 from cobaya.likelihood import Likelihood
 from cobaya.theory import Theory
+
+from paths import ML_Path
+sys.path.append(ML_Path)
+from mlstats import PolyTheory
    
 #########################################
 class LineTheory(Theory):
@@ -28,7 +32,6 @@ class LineTheory(Theory):
     #########################################
 
 #########################################
-
 
     
 #########################################
