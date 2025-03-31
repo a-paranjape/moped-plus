@@ -67,7 +67,7 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         self.verbose = params.get('verbose',True)
         self.logfile = params.get('logfile',None)
         # self.nreal = params.get('nreal',1)
-        # self.file_stems = {self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)}
+        # self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
         # if self.standardize:
         #     self.params['X_mean'] = {}
         #     self.params['X_std'] = {}
