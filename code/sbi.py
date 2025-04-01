@@ -66,44 +66,48 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         self.file_stem = params.get('file_stem','net')
         self.verbose = params.get('verbose',True)
         self.logfile = params.get('logfile',None)
-        # self.nreal = params.get('nreal',1)
-        # self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
-        # if self.standardize:
-        #     self.params['X_mean'] = {}
-        #     self.params['X_std'] = {}
-        #     self.params['theta_mean'] = {}
-        #     self.params['theta_std'] = {}
-        #     self.X_mean = {}
-        #     self.X_std = {}
-        #     self.theta_mean = {}
-        #     self.theta_std = {}
+        ##########################
+        self.nreal = params.get('nreal',1)
+        self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
+        if self.standardize:
+            self.params['X_mean'] = {}
+            self.params['X_std'] = {}
+            self.params['theta_mean'] = {}
+            self.params['theta_std'] = {}
+            self.X_mean = {}
+            self.X_std = {}
+            self.theta_mean = {}
+            self.theta_std = {}
+        ##########################
             
         self.check_init()
 
-        # feed to Sequential
-        self.params_seq = {'data_dim':self.ndata+self.nparam,'L':self.Lh+1,
-                           'n_layer':self.n_hidden_layer+[1],'atypes':self.hidden_atypes+['sigm'],'custom_atypes':custom_atypes,
-                           'loss_type':'nll','neg_labels':False,'standardize':False,# note False
-                           'adam':adam,'lrelu_slope':lrelu_slope,'reg_fun':reg_fun,'p_drop':p_drop,
-                           'wt_decay':wt_decay,'decay_norm':decay_norm,'seed':self.seed,'file_stem':self.file_stem+'/net',
-                           'verbose':self.verbose,'logfile':self.logfile} 
-        self.net = Sequential(params=self.params_seq)
-        self.net.net_type = 'reg'
-        self.net.modules[-1].net_type = 'reg'
-
         # # feed to Sequential
-        # self.params_seq = {}
-        # self.net = {}
-        # for r in range(1,self.nreal+1):
-        #     self.params_seq[r] = {'data_dim':self.ndata+self.nparam,'L':self.Lh+1,
-        #                           'n_layer':self.n_hidden_layer+[1],'atypes':self.hidden_atypes+['sigm'],'custom_atypes':custom_atypes,
-        #                           'loss_type':'nll','neg_labels':False,'standardize':False,# note False
-        #                           'adam':adam,'lrelu_slope':lrelu_slope,'reg_fun':reg_fun,'p_drop':p_drop,
-        #                           'wt_decay':wt_decay,'decay_norm':decay_norm,'seed':self.seed,'file_stem':self.file_stems[r]+'/net',
-        #                           'verbose':self.verbose,'logfile':self.logfile} 
-        #     self.net[r] = Sequential(params=self.params_seq[r])
-        #     self.net[r].net_type = 'reg'
-        #     self.net[r].modules[-1].net_type = 'reg'
+        # self.params_seq = {'data_dim':self.ndata+self.nparam,'L':self.Lh+1,
+        #                    'n_layer':self.n_hidden_layer+[1],'atypes':self.hidden_atypes+['sigm'],'custom_atypes':custom_atypes,
+        #                    'loss_type':'nll','neg_labels':False,'standardize':False,# note False
+        #                    'adam':adam,'lrelu_slope':lrelu_slope,'reg_fun':reg_fun,'p_drop':p_drop,
+        #                    'wt_decay':wt_decay,'decay_norm':decay_norm,'seed':self.seed,'file_stem':self.file_stem+'/net',
+        #                    'verbose':self.verbose,'logfile':self.logfile} 
+        # self.net = Sequential(params=self.params_seq)
+        # self.net.net_type = 'reg'
+        # self.net.modules[-1].net_type = 'reg'
+
+        ##########################
+        # feed to Sequential
+        self.params_seq = {}
+        self.net = {}
+        for r in range(1,self.nreal+1):
+            self.params_seq[r] = {'data_dim':self.ndata+self.nparam,'L':self.Lh+1,
+                                  'n_layer':self.n_hidden_layer+[1],'atypes':self.hidden_atypes+['sigm'],'custom_atypes':custom_atypes,
+                                  'loss_type':'nll','neg_labels':False,'standardize':False,# note False
+                                  'adam':adam,'lrelu_slope':lrelu_slope,'reg_fun':reg_fun,'p_drop':p_drop,
+                                  'wt_decay':wt_decay,'decay_norm':decay_norm,'seed':self.seed,'file_stem':self.file_stems[r]+'/net',
+                                  'verbose':self.verbose,'logfile':self.logfile} 
+            self.net[r] = Sequential(params=self.params_seq[r])
+            self.net[r].net_type = 'reg'
+            self.net[r].modules[-1].net_type = 'reg'
+        ##########################
         
         self.rng = np.random.RandomState(seed=self.seed)
 
@@ -117,11 +121,13 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         
         if self.ndata is None:
             raise Exception("Need to specify data_dim in NeuralRatioEstimator.")
-            
-        Path(self.file_stem).mkdir(parents=True, exist_ok=True)
 
-        # for r in range(1,self.nreal+1):
-        #     Path(self.file_stems[r]).mkdir(parents=True, exist_ok=True)
+        ##########################
+        for r in range(1,self.nreal+1):
+            Path(self.file_stems[r]).mkdir(parents=True, exist_ok=True)
+        ##########################
+            
+        # Path(self.file_stem).mkdir(parents=True, exist_ok=True)
         
         return
     #############################
@@ -142,9 +148,9 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
     #############################
 
     #############################
-    # def gen_train(self,theta_input,r):
-    def gen_train(self,theta_input):
-        """ Generate complete training sample using provided theta samples drawn from prior p(theta).
+    # def gen_train(self,theta_input):
+    def gen_train(self,theta_input,r):
+        """ Generate complete training sample for one realisation using provided theta samples drawn from prior p(theta).
             -- theta_input: parameter sample of shape (self.nparam,nsamp)
             -- r: int >= 1, realisation number
             Returns Xtheta [(self.ndata+self.nparam,2*nsamp)], Y [(1,2*nsamp)]
@@ -168,33 +174,35 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
                             .format(nsamp,X.shape[1]))
 
         if self.standardize:
-            # self.X_std[r] = np.std(X,axis=1)
-            # self.X_mean[r] = np.mean(X,axis=1)
-            # self.params['X_mean'][r] = self.X_mean[r]
-            # self.params['X_std'][r] = self.X_std[r]
-            # X = (X.T - self.X_mean[r]).T
-            # X = (X.T/(self.X_std[r] + 1e-15)).T
+            ##########################
+            self.X_std[r] = np.std(X,axis=1)
+            self.X_mean[r] = np.mean(X,axis=1)
+            self.params['X_mean'][r] = self.X_mean[r]
+            self.params['X_std'][r] = self.X_std[r]
+            X = (X.T - self.X_mean[r]).T
+            X = (X.T/(self.X_std[r] + 1e-15)).T
             
-            # self.theta_std[r] = np.std(theta,axis=1)
-            # self.theta_mean[r] = np.mean(theta,axis=1)
-            # self.params['theta_mean'][r] = self.theta_mean[r]
-            # self.params['theta_std'][r] = self.theta_std[r]
-            # theta = (theta.T - self.theta_mean[r]).T
-            # theta = (theta.T/(self.theta_std[r] + 1e-15)).T
+            self.theta_std[r] = np.std(theta,axis=1)
+            self.theta_mean[r] = np.mean(theta,axis=1)
+            self.params['theta_mean'][r] = self.theta_mean[r]
+            self.params['theta_std'][r] = self.theta_std[r]
+            theta = (theta.T - self.theta_mean[r]).T
+            theta = (theta.T/(self.theta_std[r] + 1e-15)).T
+            ##########################
 
-            self.X_std = np.std(X,axis=1)
-            self.X_mean = np.mean(X,axis=1)
-            self.params['X_mean'] = self.X_mean
-            self.params['X_std'] = self.X_std
-            X = (X.T - self.X_mean).T
-            X = (X.T/(self.X_std + 1e-15)).T
+            # self.X_std = np.std(X,axis=1)
+            # self.X_mean = np.mean(X,axis=1)
+            # self.params['X_mean'] = self.X_mean
+            # self.params['X_std'] = self.X_std
+            # X = (X.T - self.X_mean).T
+            # X = (X.T/(self.X_std + 1e-15)).T
             
-            self.theta_std = np.std(theta,axis=1)
-            self.theta_mean = np.mean(theta,axis=1)
-            self.params['theta_mean'] = self.theta_mean
-            self.params['theta_std'] = self.theta_std
-            theta = (theta.T - self.theta_mean).T
-            theta = (theta.T/(self.theta_std + 1e-15)).T
+            # self.theta_std = np.std(theta,axis=1)
+            # self.theta_mean = np.mean(theta,axis=1)
+            # self.params['theta_mean'] = self.theta_mean
+            # self.params['theta_std'] = self.theta_std
+            # theta = (theta.T - self.theta_mean).T
+            # theta = (theta.T/(self.theta_std + 1e-15)).T
 
             
         Xtheta_orig = np.concatenate((X,theta),axis=0)
@@ -241,38 +249,42 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             -- nsamp: int, number of samples to simulate.
             -- params: dictionary compatible with input to Sequential.train(). 
                        If self.use_external = True, then params should contain keys 'Xtheta' and 'Y' with values
-                       being arrays of shape (self.ndata+self.nparam,2*nsamp*self.nreal) and (1,2*nsamp*self.nreal), respectively.
+                       being arrays of shape (self.ndata+self.nparam,2*nsamp*self.nreal) and (1,2*nsamp*self.nreal), respectively,
+                       organised such that each of self.nreal chunks of length 2*nsamp along last axis are compatible with output of self.gen_train().
         """
+        ##########################
         # setup sample
         if self.use_external:
-            Xtheta = params.get('Xtheta',None)
-            Y = params.get('Y',None)
-            self.check_sample(Xtheta,Y,nsamp)
-        else:
-            theta = self.prior(nsamp)
-            Xtheta,Y = self.gen_train(theta)
-            
-        # train network
-        self.net.train(Xtheta,Y,params=params)
+            Xtheta_all = params.get('Xtheta',None)
+            Y_all = params.get('Y',None)
+            self.check_sample(Xtheta_all,Y_all,nsamp*self.nreal) # note *self.nreal
+
+        for r in range(1,self.nreal+1):
+            if self.verbose:
+                self.print_this('Training realisation {0:d} of {1:d}...'.format(r,self.nreal),self.logfile)
+            if self.use_external:
+                Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
+            else:
+                theta = self.prior(nsamp)
+                Xtheta,Y = self.gen_train(theta,r)
+
+            # train network
+            self.net[r].train(Xtheta,Y,params=params)
+        ##########################
 
         # # setup sample
         # if self.use_external:
-        #     Xtheta_all = params.get('Xtheta',None)
-        #     Y_all = params.get('Y',None)
-        #     self.check_sample(Xtheta_all,Y_all,nsamp*self.nreal) # note *self.nreal
+        #     Xtheta = params.get('Xtheta',None)
+        #     Y = params.get('Y',None)
+        #     self.check_sample(Xtheta,Y,nsamp)
+        # else:
+        #     theta = self.prior(nsamp)
+        #     Xtheta,Y = self.gen_train(theta)
+            
+        # # train network
+        # self.net.train(Xtheta,Y,params=params)
 
-        # for r in range(1,self.nreal+1):
-        #     if self.verbose:
-        #         self.print_this('Training realisation {0:d} of {1:d}...'.format(r,self.nreal),self.logfile)
-        #     if self.use_external:
-        #         Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
-        #         Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
-        #     else:
-        #         theta = self.prior(nsamp)
-        #         Xtheta,Y = self.gen_train(theta,r)
-
-        #     # train network
-        #     self.net[r].train(Xtheta,Y,params=params)
         
         return 
     #############################
@@ -283,40 +295,42 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         """ Predict neural ratio r(X,theta) =  p(theta|x)/p(theta) = p(x|theta)/p(x).
             -- X: input data array of shape (self.ndata,nsamp) [typically nsamp=1 in this case] 
             -- theta: parameter array of shape (self.nparam,nsamp)
-            Returns scalar r(X,theta).
+            Returns r(X,theta) of shape (nsamp,).
         """        
-        # ratio = 0.0
-        # for r in range(1,self.nreal+1):
-        #     X_use = X.copy()
-        #     theta_use = theta.copy()
-        #     if self.standardize:
-        #         X_use = (X_use.T - self.X_mean[r]).T
-        #         X_use = (X_use.T/(self.X_std[r] + 1e-15)).T
-        #         theta_use = (theta_use.T - self.theta_mean[r]).T
-        #         theta_use = (theta_use.T/(self.theta_std[r] + 1e-15)).T
+        ##########################
+        ratio = 0.0
+        for r in range(1,self.nreal+1):
+            X_use = X.copy()
+            theta_use = theta.copy()
+            if self.standardize:
+                X_use = (X_use.T - self.X_mean[r]).T
+                X_use = (X_use.T/(self.X_std[r] + 1e-15)).T
+                theta_use = (theta_use.T - self.theta_mean[r]).T
+                theta_use = (theta_use.T/(self.theta_std[r] + 1e-15)).T
 
-        #     Xtheta = np.concatenate((X_use,theta_use),axis=0)
+            Xtheta = np.concatenate((X_use,theta_use),axis=0)
 
-        #     s = self.net[r].predict(Xtheta)
+            s = self.net[r].predict(Xtheta)
 
-        #     ratio = ratio + s/(1 - s + 1e-15)
-        # ratio /= self.nreal
+            ratio = ratio + s/(1 - s + 1e-15)
+        ratio /= self.nreal
+        ##########################
         
             
-        X_use = X.copy()
-        theta_use = theta.copy()
+        # X_use = X.copy()
+        # theta_use = theta.copy()
         
-        if self.standardize:
-            X_use = (X_use.T - self.X_mean).T
-            X_use = (X_use.T/(self.X_std + 1e-15)).T
-            theta_use = (theta_use.T - self.theta_mean).T
-            theta_use = (theta_use.T/(self.theta_std + 1e-15)).T
+        # if self.standardize:
+        #     X_use = (X_use.T - self.X_mean).T
+        #     X_use = (X_use.T/(self.X_std + 1e-15)).T
+        #     theta_use = (theta_use.T - self.theta_mean).T
+        #     theta_use = (theta_use.T/(self.theta_std + 1e-15)).T
             
-        Xtheta = np.concatenate((X_use,theta_use),axis=0)
+        # Xtheta = np.concatenate((X_use,theta_use),axis=0)
         
-        s = self.net.predict(Xtheta)
+        # s = self.net.predict(Xtheta)
         
-        ratio = s/(1 - s + 1e-15)
+        # ratio = s/(1 - s + 1e-15)
         
         return ratio        
     #############################
@@ -325,9 +339,11 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
     def save(self):
         """ Save current weights and setup params to file(s). """
         
-        # for r in range(1,self.nreal+1):
-        #     self.net[r].save()
-        self.net.save()
+        ##########################
+        for r in range(1,self.nreal+1):
+            self.net[r].save()
+        ##########################
+        # self.net.save()
         
         with open(self.file_stem + '/params.pkl', 'wb') as f:
             pickle.dump(self.params,f)            
@@ -339,25 +355,30 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
     # e.g. after invoking self.save().
     def load(self):
         """ Load weights and setup params from file(s). """
-        # for r in range(1,self.nreal+1):
-        #     self.net[r].load()
-        self.net.load()
+        ##########################
+        for r in range(1,self.nreal+1):
+            self.net[r].load()
+        ##########################
+        # self.net.load()
+        
         with open(self.file_stem + '/params.pkl', 'rb') as f:
             self.params = pickle.load(f)
             
         self.nparam = self.params['param_dim']
-        # self.nreal = self.params['nreal']
+        self.nreal = self.params['nreal']
         self.standardize = self.params['standardize']
         if self.standardize:
-            # for r in range(1,self.nreal+1):
-            #     self.X_std[r] = self.params['X_std'][r]
-            #     self.X_mean[r] = self.params['X_mean'][r]
-            #     self.theta_std[r] = self.params['theta_std'][r]
-            #     self.theta_mean[r] = self.params['theta_mean'][r]
-            self.X_std = self.params['X_std']
-            self.X_mean = self.params['X_mean']
-            self.theta_std = self.params['theta_std']
-            self.theta_mean = self.params['theta_mean']
+            ##########################
+            for r in range(1,self.nreal+1):
+                self.X_std[r] = self.params['X_std'][r]
+                self.X_mean[r] = self.params['X_mean'][r]
+                self.theta_std[r] = self.params['theta_std'][r]
+                self.theta_mean[r] = self.params['theta_mean'][r]
+            ##########################
+            # self.X_std = self.params['X_std']
+            # self.X_mean = self.params['X_mean']
+            # self.theta_std = self.params['theta_std']
+            # self.theta_mean = self.params['theta_mean']
         
         return
     #############################
