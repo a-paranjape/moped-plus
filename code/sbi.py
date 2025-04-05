@@ -45,7 +45,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             -- params['file_stem']: str, common stem for generating filenames for saving (should include full path).
             -- params['nreal']: int, number of realisations to average over (default 1).
             -- params['parallel']: bool, whether or not to use parallel calculation in ensemble averaging (default False).
-            -- params['nproc']: int, number of CPUs to use if parallel = True (default system CPU count).
             -- params['verbose']: boolean, whether of not to print output (default True).
             -- params['logfile']: None or str, file into which to print output (default None, print to stdout)
         """
@@ -71,11 +70,12 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         self.verbose = params.get('verbose',True)
         self.logfile = params.get('logfile',None)
 
+        self.nreal = params.get('nreal',1)
+        
         self.parallel = params.get('parallel',False)
         # self.params['parallel'] = self.parallel # for consistency with self.save and self.load
-        self.nproc = params.get('nproc',os.cpu_count())
+        self.nproc = np.min([os.cpu_count(),self.nreal]) 
         
-        self.nreal = params.get('nreal',1)
         self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
         if self.standardize:
             self.params['X_mean'] = {}
