@@ -10,6 +10,8 @@ import copy,pickle
 from mllib import MLUtilities,Utilities
 from mlalgos import Sequential
 
+import multiprocessing as mp
+
 class NeuralRatioEstimator(MLUtilities,Utilities):
     """ Base class to construct neural ratio estimator using provided training sample. """
     #############################
@@ -82,17 +84,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             
         self.check_init()
 
-        # # feed to Sequential
-        # self.params_seq = {'data_dim':self.ndata+self.nparam,'L':self.Lh+1,
-        #                    'n_layer':self.n_hidden_layer+[1],'atypes':self.hidden_atypes+['sigm'],'custom_atypes':custom_atypes,
-        #                    'loss_type':'nll','neg_labels':False,'standardize':False,# note False
-        #                    'adam':adam,'lrelu_slope':lrelu_slope,'reg_fun':reg_fun,'p_drop':p_drop,
-        #                    'wt_decay':wt_decay,'decay_norm':decay_norm,'seed':self.seed,'file_stem':self.file_stem+'/net',
-        #                    'verbose':self.verbose,'logfile':self.logfile} 
-        # self.net = Sequential(params=self.params_seq)
-        # self.net.net_type = 'reg'
-        # self.net.modules[-1].net_type = 'reg'
-
         ##########################
         # feed to Sequential
         self.params_seq = {}
@@ -126,8 +117,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         for r in range(1,self.nreal+1):
             Path(self.file_stems[r]).mkdir(parents=True, exist_ok=True)
         ##########################
-            
-        # Path(self.file_stem).mkdir(parents=True, exist_ok=True)
         
         return
     #############################
@@ -189,21 +178,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             theta = (theta.T - self.theta_mean[r]).T
             theta = (theta.T/(self.theta_std[r] + 1e-15)).T
             ##########################
-
-            # self.X_std = np.std(X,axis=1)
-            # self.X_mean = np.mean(X,axis=1)
-            # self.params['X_mean'] = self.X_mean
-            # self.params['X_std'] = self.X_std
-            # X = (X.T - self.X_mean).T
-            # X = (X.T/(self.X_std + 1e-15)).T
-            
-            # self.theta_std = np.std(theta,axis=1)
-            # self.theta_mean = np.mean(theta,axis=1)
-            # self.params['theta_mean'] = self.theta_mean
-            # self.params['theta_std'] = self.theta_std
-            # theta = (theta.T - self.theta_mean).T
-            # theta = (theta.T/(self.theta_std + 1e-15)).T
-
             
         Xtheta_orig = np.concatenate((X,theta),axis=0)
 
@@ -259,6 +233,8 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             Y_all = params.get('Y',None)
             self.check_sample(Xtheta_all,Y_all,nsamp*self.nreal) # note *self.nreal
 
+        # Xtheta_r = []
+        # Y_r = []
         for r in range(1,self.nreal+1):
             if self.verbose:
                 self.print_this('Training realisation {0:d} of {1:d}...'.format(r,self.nreal),self.logfile)
@@ -268,22 +244,17 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             else:
                 theta = self.prior(nsamp)
                 Xtheta,Y = self.gen_train(theta,r)
-
-            # train network
+                
             self.net[r].train(Xtheta,Y,params=params)
-        ##########################
-
-        # # setup sample
-        # if self.use_external:
-        #     Xtheta = params.get('Xtheta',None)
-        #     Y = params.get('Y',None)
-        #     self.check_sample(Xtheta,Y,nsamp)
-        # else:
-        #     theta = self.prior(nsamp)
-        #     Xtheta,Y = self.gen_train(theta)
             
-        # # train network
-        # self.net.train(Xtheta,Y,params=params)
+        #     Xtheta_r.append(Xtheta)
+        #     Y_r.append(Y)
+
+        # tasks = [(Xtheta_r[r],Y_r[r],params) for r in range(self.nreal)]
+        # for r in range(self.nreal):
+        #     # train network
+        #     self.net[r+1].train(Xtheta_r[r],Y[r],params=params)
+        ##########################
 
         
         return 
@@ -316,22 +287,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         ratio /= self.nreal
         ##########################
         
-            
-        # X_use = X.copy()
-        # theta_use = theta.copy()
-        
-        # if self.standardize:
-        #     X_use = (X_use.T - self.X_mean).T
-        #     X_use = (X_use.T/(self.X_std + 1e-15)).T
-        #     theta_use = (theta_use.T - self.theta_mean).T
-        #     theta_use = (theta_use.T/(self.theta_std + 1e-15)).T
-            
-        # Xtheta = np.concatenate((X_use,theta_use),axis=0)
-        
-        # s = self.net.predict(Xtheta)
-        
-        # ratio = s/(1 - s + 1e-15)
-        
         return ratio        
     #############################
 
@@ -343,7 +298,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         for r in range(1,self.nreal+1):
             self.net[r].save()
         ##########################
-        # self.net.save()
         
         with open(self.file_stem + '/params.pkl', 'wb') as f:
             pickle.dump(self.params,f)            
@@ -375,10 +329,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
                 self.theta_std[r] = self.params['theta_std'][r]
                 self.theta_mean[r] = self.params['theta_mean'][r]
             ##########################
-            # self.X_std = self.params['X_std']
-            # self.X_mean = self.params['X_mean']
-            # self.theta_std = self.params['theta_std']
-            # self.theta_mean = self.params['theta_mean']
         
         return
     #############################
