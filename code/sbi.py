@@ -10,7 +10,7 @@ import copy,pickle
 from mllib import MLUtilities,Utilities
 from mlalgos import Sequential
 
-import multiprocessing as mp
+import gc
 
 class NeuralRatioEstimator(MLUtilities,Utilities):
     """ Base class to construct neural ratio estimator using provided training sample. """
@@ -44,6 +44,8 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             -- params['seed']: int, random number seed.
             -- params['file_stem']: str, common stem for generating filenames for saving (should include full path).
             -- params['nreal']: int, number of realisations to average over (default 1).
+            -- params['parallel']: bool, whether or not to use parallel calculation in ensemble averaging (default False).
+            -- params['nproc']: int, number of CPUs to use if parallel = True (default system CPU count).
             -- params['verbose']: boolean, whether of not to print output (default True).
             -- params['logfile']: None or str, file into which to print output (default None, print to stdout)
         """
@@ -68,7 +70,11 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         self.file_stem = params.get('file_stem','net')
         self.verbose = params.get('verbose',True)
         self.logfile = params.get('logfile',None)
-        ##########################
+
+        self.parallel = params.get('parallel',False)
+        # self.params['parallel'] = self.parallel # for consistency with self.save and self.load
+        self.nproc = params.get('nproc',mp.cpu_count())
+        
         self.nreal = params.get('nreal',1)
         self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
         if self.standardize:
@@ -80,7 +86,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             self.X_std = {}
             self.theta_mean = {}
             self.theta_std = {}
-        ##########################
             
         self.check_init()
 
@@ -113,10 +118,8 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         if self.ndata is None:
             raise Exception("Need to specify data_dim in NeuralRatioEstimator.")
 
-        ##########################
         for r in range(1,self.nreal+1):
             Path(self.file_stems[r]).mkdir(parents=True, exist_ok=True)
-        ##########################
         
         return
     #############################
@@ -137,7 +140,6 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
     #############################
 
     #############################
-    # def gen_train(self,theta_input):
     def gen_train(self,theta_input,r):
         """ Generate complete training sample for one realisation using provided theta samples drawn from prior p(theta).
             -- theta_input: parameter sample of shape (self.nparam,nsamp)
@@ -224,38 +226,64 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             -- params: dictionary compatible with input to Sequential.train(). 
                        If self.use_external = True, then params should contain keys 'Xtheta' and 'Y' with values
                        being arrays of shape (self.ndata+self.nparam,2*nsamp*self.nreal) and (1,2*nsamp*self.nreal), respectively,
-                       organised such that each of self.nreal chunks of length 2*nsamp along last axis are compatible with output of self.gen_train().
+                       organised such that each of self.nreal chunks of length 2*nsamp along last axis 
+                       are compatible with output of self.gen_train().
         """
         ##########################
         # setup sample
+        if self.verbose:
+            self.print_this('Sample setup...',self.logfile)
+            
         if self.use_external:
             Xtheta_all = params.get('Xtheta',None)
             Y_all = params.get('Y',None)
             self.check_sample(Xtheta_all,Y_all,nsamp*self.nreal) # note *self.nreal
 
-        # Xtheta_r = []
-        # Y_r = []
-        for r in range(1,self.nreal+1):
+        if self.parallel:
+            ##########################
+            # continue setup sample
+            Xtheta_r = []
+            Y_r = []
+            for r in range(1,self.nreal+1):
+                if self.use_external:
+                    Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                    Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                else:
+                    theta = self.prior(nsamp)
+                    Xtheta,Y = self.gen_train(theta,r)
+                Xtheta_r.append(Xtheta)
+                Y_r.append(Y)
+
+            # train networks
             if self.verbose:
-                self.print_this('Training realisation {0:d} of {1:d}...'.format(r,self.nreal),self.logfile)
-            if self.use_external:
-                Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
-                Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
-            else:
-                theta = self.prior(nsamp)
-                Xtheta,Y = self.gen_train(theta,r)
-                
-            self.net[r].train(Xtheta,Y,params=params)
+                self.print_this('... training {0:d} realisations with {1:d} processors'.format(self.nreal,self.nproc),self.logfile)
+            tasks = [(Xtheta_r[r],Y_r[r],params) for r in range(self.nreal)]
+            targets = [self.net[r+1].train for r in range(self.nreal)]
             
-        #     Xtheta_r.append(Xtheta)
-        #     Y_r.append(Y)
+            del Xtheta_r,Y_r
+            gc.collect()
 
-        # tasks = [(Xtheta_r[r],Y_r[r],params) for r in range(self.nreal)]
-        # for r in range(self.nreal):
-        #     # train network
-        #     self.net[r+1].train(Xtheta_r[r],Y[r],params=params)
-        ##########################
+            self.run_processes(tasks,targets,self.nproc)
 
+            del tasks,targets
+            gc.collect()
+            ##########################
+        else:
+            ##########################
+            # continue setup sample
+            for r in range(1,self.nreal+1):
+                if self.verbose:
+                    self.print_this('Training realisation {0:d} of {1:d}...'.format(r,self.nreal),self.logfile)
+                if self.use_external:
+                    Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                    Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                else:
+                    theta = self.prior(nsamp)
+                    Xtheta,Y = self.gen_train(theta,r)
+
+                # train network
+                self.net[r].train(Xtheta,Y,params=params)
+            ##########################
         
         return 
     #############################
