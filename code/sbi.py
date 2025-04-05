@@ -1,5 +1,5 @@
 import numpy as np
-import sys
+import sys,os
 
 from paths import ML_Path
 sys.path.append(ML_Path)
@@ -73,7 +73,7 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
 
         self.parallel = params.get('parallel',False)
         # self.params['parallel'] = self.parallel # for consistency with self.save and self.load
-        self.nproc = params.get('nproc',mp.cpu_count())
+        self.nproc = params.get('nproc',os.cpu_count())
         
         self.nreal = params.get('nreal',1)
         self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
