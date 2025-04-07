@@ -339,13 +339,14 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
     #############################
 
     #############################
-    # to be called after generating instance of Sequential() with correct setup params,
+    # to be called after generating instance of NeuralRatioEstimator() with correct setup params,
     # e.g. after invoking self.save().
     def load(self):
         """ Load weights and setup params from file(s). """
         ##########################
         for r in range(1,self.nreal+1):
             self.net[r].load()
+            self.net[r].load_loss_history()
         ##########################
         # self.net.load()
         
