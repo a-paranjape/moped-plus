@@ -297,7 +297,8 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             Returns r(X,theta) of shape (nsamp,).
         """        
         ##########################
-        ratio = 0.0
+        ratios = np.zeros(self.nreal)
+        weights = np.zeros(self.nreal)
         for r in range(1,self.nreal+1):
             X_use = X.copy()
             theta_use = theta.copy()
@@ -310,9 +311,14 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             Xtheta = np.concatenate((X_use,theta_use),axis=0)
 
             s = self.net[r].predict(Xtheta)
+            ratios[r-1] = s/(1 - s + 1e-15)
 
-            ratio = ratio + s/(1 - s + 1e-15)
-        ratio /= self.nreal
+            min_loss = self.net[r].val_loss[self.net[r].val_loss > 0.0].min() + 1e-15
+            weights[r-1] = 1/min_loss
+            
+        weights /= weights.sum()
+
+        ratio = np.sum(weights*ratios)
         ##########################
         
         return ratio        
