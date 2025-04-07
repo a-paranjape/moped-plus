@@ -257,17 +257,19 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             # train networks
             if self.verbose:
                 self.print_this('... training {0:d} realisations with {1:d} processors'.format(self.nreal,self.nproc),self.logfile)
-            tasks = [(Xtheta_r[r],Y_r[r],params) for r in range(self.nreal)]
+            tasks = [(Xtheta_r[r],Y_r[r],params,copy.deepcopy(self.net[r+1])) for r in range(self.nreal)]
+            # tasks = [(Xtheta_r[r],Y_r[r],params) for r in range(self.nreal)]
             # targets = [self.net[r+1].train for r in range(self.nreal)]
-            instances = [self.net[r+1] for r in range(self.nreal)]
+            # instances = [self.net[r+1] for r in range(self.nreal)]
             
             del Xtheta_r,Y_r
             gc.collect()
 
-            # self.run_processes(tasks,targets,self.nproc)
-            self.train_parallel(tasks,instances,self.nproc)
+            updated_net_dict = self.train_parallel(tasks,self.nproc)
+            for r in range(1,self.nreal+1):
+                self.net[r] = updated_net_dict[r]
 
-            del tasks,targets
+            del tasks,updated_net_dict
             gc.collect()
             ##########################
         else:
