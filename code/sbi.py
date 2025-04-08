@@ -44,6 +44,7 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             -- params['seed']: int, random number seed.
             -- params['file_stem']: str, common stem for generating filenames for saving (should include full path).
             -- params['nreal']: int, number of realisations to average over (default 1).
+            -- params['share_train_data']: bool, whether or not to share training data across multiple realisations (default True).
             -- params['parallel']: bool, whether or not to use parallel calculation in ensemble averaging (default False).
             -- params['verbose']: boolean, whether of not to print output (default True).
             -- params['logfile']: None or str, file into which to print output (default None, print to stdout)
@@ -64,17 +65,22 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         wt_decay = params.get('wt_decay',0.0)
         decay_norm = int(params.get('decay_norm',2))
         self.standardize = params.get('standardize',True)
-        self.params['standardize'] = self.standardize # for consistency with self.save and self.load
         self.seed = params.get('seed',None)
         self.file_stem = params.get('file_stem','net')
         self.verbose = params.get('verbose',True)
         self.logfile = params.get('logfile',None)
 
         self.nreal = params.get('nreal',1)
+        self.share_train_data = params.get('share_train_data',True)
         
         self.parallel = params.get('parallel',False)
-        # self.params['parallel'] = self.parallel # for consistency with self.save and self.load
         self.nproc = np.min([os.cpu_count(),self.nreal]) 
+
+        # for consistency with self.save and self.load
+        self.params['standardize'] = self.standardize 
+        self.params['parallel'] = self.parallel 
+        self.params['nreal'] = self.nreal
+        self.params['share_train_data'] = self.share_train_data
         
         self.file_stems = {r:self.file_stem+'/r{0:d}'.format(r) for r in range(1,self.nreal+1)} if self.nreal > 1 else {1:self.file_stem}
         if self.standardize:
@@ -237,8 +243,16 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         if self.use_external:
             Xtheta_all = params.get('Xtheta',None)
             Y_all = params.get('Y',None)
-            self.check_sample(Xtheta_all,Y_all,nsamp*self.nreal) # note *self.nreal
+            nsamp_all = nsamp if self.share_train_data else nsamp*self.nreal
+            self.check_sample(Xtheta_all,Y_all,nsamp_all) 
 
+        if self.share_train_data:
+            if self.verbose:
+                self.print_this('Sharing data between {0:d} realisations...'.format(self.nreal),self.logfile)
+        else:
+            if self.verbose:
+                self.print_this('Using independent data for each of {0:d} realisations...'.format(self.nreal),self.logfile)
+                
         if self.parallel:
             ##########################
             # continue setup sample
@@ -246,26 +260,24 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             Y_r = []
             for r in range(1,self.nreal+1):
                 if self.use_external:
-                    Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
-                    Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                    Xtheta = Xtheta_all if self.share_train_data else Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                    Y = Y_all if self.share_train_data else Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
                 else:
-                    theta = self.prior(nsamp)
-                    Xtheta,Y = self.gen_train(theta,r)
+                    if (r == 1) | (not self.share_train_data):
+                        theta = self.prior(nsamp)
+                        Xtheta,Y = self.gen_train(theta,r)
                 Xtheta_r.append(Xtheta)
                 Y_r.append(Y)
 
-            # train networks
-            if self.verbose:
-                self.print_this('... training {0:d} realisations with {1:d} processors'.format(self.nreal,self.nproc),self.logfile)
             tasks = [(Xtheta_r[r],Y_r[r],params,copy.deepcopy(self.net[r+1])) for r in range(self.nreal)]
-            # tasks = [(Xtheta_r[r],Y_r[r],params) for r in range(self.nreal)]
-            # targets = [self.net[r+1].train for r in range(self.nreal)]
-            # instances = [self.net[r+1] for r in range(self.nreal)]
-            
+
             del Xtheta_r,Y_r
             gc.collect()
 
-            updated_net_dict = self.train_parallel(tasks,self.nproc)
+            if self.verbose:
+                self.print_this('Training {0:d} realisations with {1:d} processors...'.format(self.nreal,self.nproc),self.logfile)
+            # train networks
+            updated_net_dict = self.run_processes(tasks,self.queue_train,self.nproc)
             for r in range(1,self.nreal+1):
                 self.net[r] = updated_net_dict[r]
 
@@ -279,11 +291,12 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
                 if self.verbose:
                     self.print_this('Training realisation {0:d} of {1:d}...'.format(r,self.nreal),self.logfile)
                 if self.use_external:
-                    Xtheta = Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
-                    Y = Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                    Xtheta = Xtheta_all if self.share_train_data else Xtheta_all[:,(r-1)*2*nsamp:r*2*nsamp]
+                    Y = Y_all if self.share_train_data else Y_all[:,(r-1)*2*nsamp:r*2*nsamp]
                 else:
-                    theta = self.prior(nsamp)
-                    Xtheta,Y = self.gen_train(theta,r)
+                    if (r == 1) | (not self.share_train_data):
+                        theta = self.prior(nsamp)
+                        Xtheta,Y = self.gen_train(theta,r)
 
                 # train network
                 self.net[r].train(Xtheta,Y,params=params)
@@ -292,6 +305,13 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         return 
     #############################
 
+    #############################
+    def queue_train(self,r,X,Y,params,net,mdict):
+        """ Convenience function for use with MLUtilities.run_processes(). Expect r >= 0."""
+        net.train(X,Y,params)
+        mdict[r+1] = net
+        return
+    #############################
 
     #############################
     def predict(self,X,theta):
@@ -307,10 +327,11 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
             X_use = X.copy()
             theta_use = theta.copy()
             if self.standardize:
-                X_use = (X_use.T - self.X_mean[r]).T
-                X_use = (X_use.T/(self.X_std[r] + 1e-15)).T
-                theta_use = (theta_use.T - self.theta_mean[r]).T
-                theta_use = (theta_use.T/(self.theta_std[r] + 1e-15)).T
+                r_use = 1 if self.share_train_data else r
+                X_use = (X_use.T - self.X_mean[r_use]).T
+                X_use = (X_use.T/(self.X_std[r_use] + 1e-15)).T
+                theta_use = (theta_use.T - self.theta_mean[r_use]).T
+                theta_use = (theta_use.T/(self.theta_std[r_use] + 1e-15)).T
 
             Xtheta = np.concatenate((X_use,theta_use),axis=0)
 
@@ -360,13 +381,16 @@ class NeuralRatioEstimator(MLUtilities,Utilities):
         self.nparam = self.params['param_dim']
         self.nreal = self.params['nreal']
         self.standardize = self.params['standardize']
+        self.share_train_data = self.params['share_train_data']
+        self.parallel = self.params['parallel']
         if self.standardize:
             ##########################
             for r in range(1,self.nreal+1):
-                self.X_std[r] = self.params['X_std'][r]
-                self.X_mean[r] = self.params['X_mean'][r]
-                self.theta_std[r] = self.params['theta_std'][r]
-                self.theta_mean[r] = self.params['theta_mean'][r]
+                r_use = 1 if self.share_train_data else r
+                self.X_std[r] = self.params['X_std'][r_use]
+                self.X_mean[r] = self.params['X_mean'][r_use]
+                self.theta_std[r] = self.params['theta_std'][r_use]
+                self.theta_mean[r] = self.params['theta_mean'][r_use]
             ##########################
         
         return
