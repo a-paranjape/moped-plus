@@ -12,6 +12,10 @@ from mlalgos import Sequential
 
 import gc
 
+import psutil
+# import os
+# os.system("taskset -p 0xff %d" % os.getpid())
+
 class NeuralRatioEstimator(MLUtilities,Utilities):
     """ Base class to construct neural ratio estimator using provided training sample. """
     #############################

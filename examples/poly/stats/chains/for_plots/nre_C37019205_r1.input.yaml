@@ -1,0 +1,59 @@
+theory:
+  likelihoods.NRETheory:
+    python_path: ../code/likes/
+    nre: true
+    data:
+    - - -6.89971308402518
+    - - -6.195029551533283
+    - - -5.434604125803146
+    - - -4.366129938260765
+    - - -3.5617147501494935
+    - - -2.4147766547977105
+    - - -1.8646161967758637
+    - - -0.4873350934500992
+    - - -0.04435660998342489
+    - - 0.29610264559682564
+    - - 1.9496477568944928
+    - - 3.0859482537144487
+    - - 3.834723652077261
+    - - 4.514500079939001
+    - - 4.987676353083658
+    keys:
+    - a0
+    - a1
+likelihood:
+  likelihoods.NRELike:
+    python_path: ../code/likes/
+params:
+  a0:
+    ref:
+      min: -0.001
+      max: 0.001
+    prior:
+      dist: norm
+      loc: 0.0
+      scale: 6.0
+    proposal: 0.01
+    latex: a_{0}
+  a1:
+    ref:
+      min: -0.001
+      max: 0.001
+    prior:
+      dist: norm
+      loc: 0.0
+      scale: 6.0
+    proposal: 0.01
+    latex: a_{1}
+sampler:
+  mcmc:
+    learn_proposal: true
+    Rminus1_single_split: 4
+    measure_speeds: true
+    max_samples: 1000000
+    max_tries: 1000
+    Rminus1_stop: 0.01
+    Rminus1_cl_stop: 0.05
+    Rminus1_cl_level: 0.95
+    burn_in: 0
+output: nre_C37019205_r1

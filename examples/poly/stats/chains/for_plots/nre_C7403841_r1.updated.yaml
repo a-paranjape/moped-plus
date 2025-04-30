@@ -1,0 +1,97 @@
+theory:
+  likelihoods.NRETheory:
+    nre: true
+    data:
+    - - 2.6203926460811435
+    - - 1.5361799391042412
+    - - 0.034864829908795164
+    - - -1.049176666505022
+    - - -2.6563456976553557
+    - - -3.7611249538900884
+    - - -5.206171831462739
+    - - -6.163176788615316
+    - - -8.17581077611379
+    - - -8.47299828832603
+    - - -10.069362189482284
+    - - -12.343548186959872
+    - - -13.734790777237395
+    - - -14.241350321000214
+    - - -15.349492876229727
+    keys:
+    - a0
+    - a1
+    speed: -1
+    stop_at_error: false
+    version: null
+    python_path: ../code/likes/
+    input_params:
+    - a0
+    - a1
+    output_params: []
+likelihood:
+  likelihoods.NRELike:
+    type: []
+    speed: -1
+    stop_at_error: false
+    version: null
+    python_path: ../code/likes/
+    input_params: []
+    output_params: []
+params:
+  a0:
+    ref:
+      min: -0.001
+      max: 0.001
+    prior:
+      dist: norm
+      loc: 0.0
+      scale: 6.0
+    proposal: 0.01
+    latex: a_{0}
+  a1:
+    ref:
+      min: -0.001
+      max: 0.001
+    prior:
+      dist: norm
+      loc: 0.0
+      scale: 6.0
+    proposal: 0.01
+    latex: a_{1}
+sampler:
+  mcmc:
+    burn_in: 0
+    max_tries: 1000
+    covmat: null
+    covmat_params: null
+    proposal_scale: 2.4
+    output_every: 60s
+    learn_every: 40d
+    temperature: 1
+    learn_proposal: true
+    learn_proposal_Rminus1_max: 2.0
+    learn_proposal_Rminus1_max_early: 30.0
+    learn_proposal_Rminus1_min: 0.0
+    max_samples: 1000000
+    Rminus1_stop: 0.01
+    Rminus1_cl_stop: 0.05
+    Rminus1_cl_level: 0.95
+    Rminus1_single_split: 4
+    measure_speeds: true
+    oversample_power: 0.4
+    oversample_thin: true
+    drag: false
+    blocking:
+    - - 1
+      - - a0
+        - a1
+    callback_function: null
+    callback_every: null
+    seed: null
+    check_every: null
+    oversample: null
+    drag_limits: null
+    fallback_covmat_scale: 4
+    version: 3.5.1
+output: nre_C7403841_r1
+version: 3.5.1
